@@ -1,0 +1,1515 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="h-full bg-slate-900">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Lava Jato Pro - iOS Edition</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            ios: {
+              bg: '#000000',
+              card: 'rgba(28, 28, 30, 0.75)',
+              border: 'rgba(255, 255, 255, 0.12)',
+              blue: '#0A84FF',
+              green: '#30D158',
+              orange: '#FF9F0A',
+              red: '#FF453A',
+              purple: '#BF5AF2',
+              gray: '#8E8E93'
+            }
+          },
+          fontFamily: {
+            sans: ['-apple-system', 'BlinkMacSystemFont', '"SF Pro Display"', '"SF Pro Text"', 'Helvetica Neue', 'sans-serif']
+          }
+        }
+      }
+    }
+  </script>
+  
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <style>
+    .glass-panel {
+      background: rgba(28, 28, 30, 0.75);
+      backdrop-filter: blur(25px);
+      -webkit-backdrop-filter: blur(25px);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+    }
+    
+    .glass-nav {
+      background: rgba(18, 18, 18, 0.85);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-top: 0.5px solid rgba(255, 255, 255, 0.15);
+    }
+
+    .ios-input {
+      background: rgba(44, 44, 46, 0.8);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: #FFFFFF;
+      transition: all 0.2s ease;
+    }
+
+    .ios-input:focus {
+      border-color: #0A84FF;
+      outline: none;
+      box-shadow: 0 0 0 3px rgba(10, 132, 255, 0.25);
+    }
+
+    /* Scrollbar oculta estilo iOS */
+    ::-webkit-scrollbar { display: none; }
+    * { -ms-overflow-style: none; scrollbar-width: none; }
+
+    /* Touch active state feedback */
+    .ios-btn:active {
+      transform: scale(0.97);
+      opacity: 0.85;
+    }
+  </style>
+</head>
+<body class="text-white h-full flex flex-col justify-between select-none bg-black overflow-hidden font-sans">
+
+  <!-- HEADER FIXO iOS -->
+  <header class="glass-panel sticky top-0 z-40 px-5 pt-8 pb-4 flex justify-between items-end border-b border-white/10">
+    <div>
+      <span class="text-xs uppercase tracking-wider text-ios-gray font-semibold block mb-0.5">Gestão Lava Jato</span>
+      <h1 id="header-title" class="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
+        <i class="fa-solid fa-car-side text-ios-blue text-xl"></i> Pátio de Veículos
+      </h1>
+    </div>
+    <div class="flex items-center gap-2">
+      <button onclick="openSyncModal()" id="btn-sync-status" class="px-2.5 py-1 bg-ios-green/20 text-ios-green hover:bg-ios-green/30 text-xs font-semibold rounded-full border border-ios-green/30 flex items-center gap-1.5 transition-all">
+        <span class="w-2 h-2 rounded-full bg-ios-green animate-pulse"></span>
+        <span id="sync-code-label"><i class="fa-solid fa-cloud"></i> Matriz</span>
+      </button>
+      <div id="stat-count-badge" class="px-3 py-1 bg-ios-blue/20 text-ios-blue text-xs font-bold rounded-full border border-ios-blue/30">
+        0 carros
+      </div>
+    </div>
+  </header>
+
+  <!-- CONTEÚDO PRINCIPAL (SCROLLABLE) -->
+  <main class="flex-1 overflow-y-auto px-4 pt-4 pb-28 space-y-5" id="main-scroll">
+
+    <!-- ABA 1: PÁTIO DE VEÍCULOS -->
+    <section id="tab-patio" class="tab-content space-y-5">
+      
+      <!-- QUADRO CANVAS DO PÁTIO (VISUAL DAS VAGAS) -->
+      <div class="glass-panel rounded-3xl p-4 shadow-2xl relative overflow-hidden">
+        <div class="flex justify-between items-center mb-3">
+          <h2 class="text-sm font-semibold text-slate-300 flex items-center gap-2">
+            <i class="fa-solid fa-border-all text-ios-blue"></i> Mapa do Pátio (Canvas Interactive)
+          </h2>
+          <span class="text-xs text-ios-gray" id="canvas-patio-status">Vagas Ocupadas</span>
+        </div>
+        <div class="relative w-full rounded-2xl overflow-hidden bg-slate-950 border border-white/10">
+          <canvas id="canvas-patio" class="w-full h-44 block cursor-pointer"></canvas>
+        </div>
+      </div>
+
+      <!-- FORMULÁRIO NOVO VEÍCULO -->
+      <div class="glass-panel rounded-3xl p-5 shadow-2xl space-y-4">
+        <div class="flex items-center justify-between">
+          <h2 class="text-base font-bold text-white flex items-center gap-2">
+            <i class="fa-solid fa-circle-plus text-ios-green"></i> Entrada de Veículo
+          </h2>
+          <span class="text-xs text-ios-gray">Preencha todos os campos</span>
+        </div>
+
+        <form id="form-carro" class="space-y-3">
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="text-xs text-ios-gray font-medium mb-1 block">Veículo / Marca</label>
+              <input type="text" id="carro-nome" placeholder="Ex: Civic, Gol, Hilux" required class="ios-input w-full px-3 py-2.5 rounded-xl text-sm">
+            </div>
+            <div>
+              <label class="text-xs text-ios-gray font-medium mb-1 block">Modelo / Versão</label>
+              <input type="text" id="carro-modelo" placeholder="Ex: 2.0 Flex 2022" class="ios-input w-full px-3 py-2.5 rounded-xl text-sm">
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="text-xs text-ios-gray font-medium mb-1 block">Cor do Veículo</label>
+              <input type="text" id="carro-cor" placeholder="Ex: Preto, Branco" class="ios-input w-full px-3 py-2.5 rounded-xl text-sm">
+            </div>
+            <div>
+              <label class="text-xs text-ios-gray font-medium mb-1 block">Valor Lavagem (R$)</label>
+              <input type="number" step="0.01" id="carro-valor" placeholder="60.00" required class="ios-input w-full px-3 py-2.5 rounded-xl text-sm">
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 gap-3">
+            <div>
+              <label class="text-xs text-ios-gray font-medium mb-1 block">Proteção Especial / Cera</label>
+              <select id="carro-protecao" class="ios-input w-full px-3 py-2.5 rounded-xl text-sm appearance-none bg-slate-800">
+                <option value="Nenhuma">Nenhuma Proteção Extra</option>
+                <option value="Jet Cera">✨ Jet Cera (+Brilho Rápido)</option>
+                <option value="Blend">🛡️ Blend (Cera Selante)</option>
+                <option value="Carnaúba">🔥 Carnaúba Premium</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="text-xs text-ios-gray font-medium mb-1 block">Hora Entrada</label>
+              <input type="time" id="carro-entrada" required class="ios-input w-full px-3 py-2.5 rounded-xl text-sm">
+            </div>
+            <div>
+              <label class="text-xs text-ios-gray font-medium mb-1 block">Hora Saída (Prevista)</label>
+              <input type="time" id="carro-saida" required class="ios-input w-full px-3 py-2.5 rounded-xl text-sm">
+            </div>
+          </div>
+
+          <button type="submit" class="ios-btn w-full py-3 bg-ios-blue text-white font-bold rounded-2xl shadow-lg shadow-ios-blue/30 flex items-center justify-center gap-2 mt-2">
+            <i class="fa-solid fa-car"></i> Confirmar Entrada no Pátio
+          </button>
+        </form>
+      </div>
+
+      <!-- LISTA DE CARROS NO PÁTIO -->
+      <div class="space-y-3">
+        <h3 class="text-xs uppercase tracking-wider text-ios-gray font-bold px-1">Veículos em Atendimento</h3>
+        <div id="lista-carros" class="space-y-3">
+          <!-- Dinâmico via JavaScript -->
+        </div>
+      </div>
+    </section>
+
+    <!-- ABA 2: AGENDAMENTOS -->
+    <section id="tab-agendamentos" class="tab-content hidden space-y-5">
+      <div class="glass-panel rounded-3xl p-5 shadow-2xl space-y-4">
+        <h2 class="text-base font-bold text-white flex items-center gap-2">
+          <i class="fa-solid fa-calendar-plus text-ios-orange"></i> Novo Agendamento
+        </h2>
+
+        <form id="form-agendamento" class="space-y-3">
+          <div>
+            <label class="text-xs text-ios-gray font-medium mb-1 block">Nome do Cliente e Carro</label>
+            <input type="text" id="ag-cliente" placeholder="Ex: Carlos (Corolla)" required class="ios-input w-full px-3 py-2.5 rounded-xl text-sm">
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="text-xs text-ios-gray font-medium mb-1 block">Data</label>
+              <input type="date" id="ag-data" required class="ios-input w-full px-3 py-2.5 rounded-xl text-sm">
+            </div>
+            <div>
+              <label class="text-xs text-ios-gray font-medium mb-1 block">Horário</label>
+              <input type="time" id="ag-hora" required class="ios-input w-full px-3 py-2.5 rounded-xl text-sm">
+            </div>
+          </div>
+
+          <div>
+            <label class="text-xs text-ios-gray font-medium mb-1 block">Serviço Pretendido</label>
+            <input type="text" id="ag-servico" placeholder="Ex: Lavagem Detalhada + Carnaúba" class="ios-input w-full px-3 py-2.5 rounded-xl text-sm">
+          </div>
+
+          <button type="submit" class="ios-btn w-full py-3 bg-ios-orange text-white font-bold rounded-2xl shadow-lg shadow-ios-orange/30 flex items-center justify-center gap-2">
+            <i class="fa-solid fa-clock"></i> Confirmar Agendamento
+          </button>
+        </form>
+      </div>
+
+      <div class="space-y-3">
+        <h3 class="text-xs uppercase tracking-wider text-ios-gray font-bold px-1">Próximos Agendamentos</h3>
+        <div id="lista-agendamentos" class="space-y-3">
+          <!-- Dinâmico via JavaScript -->
+        </div>
+      </div>
+    </section>
+
+    <!-- ABA 3: DESPESAS E FINANCEIRO -->
+    <section id="tab-despesas" class="tab-content hidden space-y-5">
+      
+      <!-- CARTÃO DE RESUMO FINANCEIRO -->
+      <div class="grid grid-cols-2 gap-3">
+        <div class="glass-panel p-4 rounded-2xl border-l-4 border-ios-green">
+          <span class="text-xs text-ios-gray font-medium block">Faturamento (Pátio)</span>
+          <span id="stat-faturamento" class="text-lg font-bold text-ios-green">R$ 0,00</span>
+        </div>
+        <div class="glass-panel p-4 rounded-2xl border-l-4 border-ios-red">
+          <span class="text-xs text-ios-gray font-medium block">Total Despesas</span>
+          <span id="stat-despesas" class="text-lg font-bold text-ios-red">R$ 0,00</span>
+        </div>
+      </div>
+
+      <!-- CANVAS DE GRÁFICO FINANCEIRO -->
+      <div class="glass-panel rounded-3xl p-4 shadow-2xl relative">
+        <div class="flex justify-between items-center mb-3">
+          <h2 class="text-sm font-semibold text-slate-300 flex items-center gap-2">
+            <i class="fa-solid fa-chart-column text-ios-purple"></i> Balanço Financeiro (Canvas Chart)
+          </h2>
+          <span id="stat-lucro" class="text-xs font-bold text-ios-blue">Lucro: R$ 0,00</span>
+        </div>
+        <div class="relative w-full rounded-2xl overflow-hidden bg-slate-950 border border-white/10">
+          <canvas id="canvas-financeiro" class="w-full h-48 block"></canvas>
+        </div>
+      </div>
+
+      <!-- FORMULÁRIO DE DESPESA -->
+      <div class="glass-panel rounded-3xl p-5 shadow-2xl space-y-4">
+        <h2 class="text-base font-bold text-white flex items-center gap-2">
+          <i class="fa-solid fa-file-invoice-dollar text-ios-red"></i> Lançar Nova Despesa
+        </h2>
+
+        <form id="form-despesa" class="space-y-3">
+          <div>
+            <label class="text-xs text-ios-gray font-medium mb-1 block">Descrição da Despesa</label>
+            <input type="text" id="desp-desc" placeholder="Ex: Shampoo, Pretinho, Conta de Luz" required class="ios-input w-full px-3 py-2.5 rounded-xl text-sm">
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="text-xs text-ios-gray font-medium mb-1 block">Valor (R$)</label>
+              <input type="number" step="0.01" id="desp-valor" placeholder="0.00" required class="ios-input w-full px-3 py-2.5 rounded-xl text-sm">
+            </div>
+            <div>
+              <label class="text-xs text-ios-gray font-medium mb-1 block">Categoria</label>
+              <select id="desp-cat" class="ios-input w-full px-3 py-2.5 rounded-xl text-sm appearance-none bg-slate-800">
+                <option value="Insumos">Insumos/Produtos</option>
+                <option value="Contas">Contas (Água/Luz)</option>
+                <option value="Equipamentos">Equipamentos/Manutenção</option>
+                <option value="Outros">Outros</option>
+              </select>
+            </div>
+          </div>
+
+          <button type="submit" class="ios-btn w-full py-3 bg-ios-red text-white font-bold rounded-2xl shadow-lg shadow-ios-red/30 flex items-center justify-center gap-2">
+            <i class="fa-solid fa-minus-circle"></i> Registrar Despesa
+          </button>
+        </form>
+      </div>
+
+      <div class="space-y-3">
+        <h3 class="text-xs uppercase tracking-wider text-ios-gray font-bold px-1">Histórico de Custos</h3>
+        <div id="lista-despesas" class="space-y-3">
+          <!-- Dinâmico via JavaScript -->
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- TAB BAR FIXO iOS -->
+  <nav class="glass-nav fixed bottom-0 left-0 right-0 h-20 px-6 flex justify-around items-center z-50">
+    <button onclick="switchTab('patio', 'Pátio de Veículos', this)" class="nav-btn active flex flex-col items-center gap-1 text-ios-blue transition-all">
+      <i class="fa-solid fa-car-side text-xl"></i>
+      <span class="text-[10px] font-semibold tracking-tight">Pátio</span>
+    </button>
+    <button onclick="switchTab('agendamentos', 'Agendamentos', this)" class="nav-btn flex flex-col items-center gap-1 text-ios-gray hover:text-white transition-all">
+      <i class="fa-solid fa-calendar-days text-xl"></i>
+      <span class="text-[10px] font-semibold tracking-tight">Agenda</span>
+    </button>
+    <button onclick="switchTab('despesas', 'Financeiro & Despesas', this)" class="nav-btn flex flex-col items-center gap-1 text-ios-gray hover:text-white transition-all">
+      <i class="fa-solid fa-chart-line text-xl"></i>
+      <span class="text-[10px] font-semibold tracking-tight">Despesas</span>
+    </button>
+  </nav>
+
+  <!-- MODAL DE MENSAGENS E CONFIRMAÇÕES (Custom iOS Dialog) -->
+  <div id="ios-modal" class="fixed inset-0 bg-black/70 backdrop-blur-md z-[100] flex items-center justify-center p-4 hidden opacity-0 transition-opacity duration-200">
+    <div class="glass-panel w-full max-w-xs rounded-3xl p-5 text-center space-y-4 shadow-2xl border border-white/20 transform scale-95 transition-transform duration-200" id="ios-modal-box">
+      <div id="modal-icon" class="text-3xl text-ios-blue">
+        <i class="fa-solid fa-circle-info"></i>
+      </div>
+      <h3 id="modal-title" class="text-lg font-bold text-white">Aviso</h3>
+      <p id="modal-msg" class="text-xs text-slate-300 leading-relaxed">Mensagem do sistema.</p>
+      <div class="flex gap-2 pt-2" id="modal-actions">
+        <button onclick="closeModal()" class="w-full py-2.5 bg-ios-blue text-white rounded-xl text-sm font-semibold ios-btn">OK</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL DE EDIÇÃO DE VEÍCULO -->
+  <div id="modal-editar-carro" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden opacity-0 transition-opacity duration-200">
+    <div class="glass-panel w-full max-w-md rounded-3xl p-5 space-y-4 shadow-2xl border border-white/20 max-h-[90vh] overflow-y-auto transform scale-95 transition-transform duration-200" id="edit-modal-box">
+      <div class="flex justify-between items-center pb-2 border-b border-white/10">
+        <h3 class="text-lg font-bold text-white flex items-center gap-2">
+          <i class="fa-solid fa-pen-to-square text-ios-blue"></i> Editar Veículo
+        </h3>
+        <button onclick="closeEditModal()" class="text-ios-gray hover:text-white text-lg px-2 py-1">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <form id="form-editar-carro" class="space-y-3">
+        <input type="hidden" id="edit-carro-id">
+        
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="text-xs text-ios-gray font-medium mb-1 block">Veículo / Marca</label>
+            <input type="text" id="edit-carro-nome" required class="ios-input w-full px-3 py-2 rounded-xl text-sm">
+          </div>
+          <div>
+            <label class="text-xs text-ios-gray font-medium mb-1 block">Modelo / Versão</label>
+            <input type="text" id="edit-carro-modelo" class="ios-input w-full px-3 py-2 rounded-xl text-sm">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="text-xs text-ios-gray font-medium mb-1 block">Cor do Veículo</label>
+            <input type="text" id="edit-carro-cor" class="ios-input w-full px-3 py-2 rounded-xl text-sm">
+          </div>
+          <div>
+            <label class="text-xs text-ios-gray font-medium mb-1 block">Valor Lavagem (R$)</label>
+            <input type="number" step="0.01" id="edit-carro-valor" required class="ios-input w-full px-3 py-2 rounded-xl text-sm">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="text-xs text-ios-gray font-medium mb-1 block">Proteção / Cera</label>
+            <select id="edit-carro-protecao" class="ios-input w-full px-3 py-2 rounded-xl text-sm bg-slate-800">
+              <option value="Nenhuma">Nenhuma Proteção Extra</option>
+              <option value="Jet Cera">✨ Jet Cera (+Brilho Rápido)</option>
+              <option value="Blend">🛡️ Blend (Cera Selante)</option>
+              <option value="Carnaúba">🔥 Carnaúba Premium</option>
+            </select>
+          </div>
+          <div>
+            <label class="text-xs text-ios-gray font-medium mb-1 block">Status Atual</label>
+            <select id="edit-carro-status" class="ios-input w-full px-3 py-2 rounded-xl text-sm bg-slate-800">
+              <option value="Em Lavagem">Em Lavagem</option>
+              <option value="Pronto">Pronto</option>
+              <option value="Entregue">Entregue</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="text-xs text-ios-gray font-medium mb-1 block">Hora Entrada</label>
+            <input type="time" id="edit-carro-entrada" required class="ios-input w-full px-3 py-2 rounded-xl text-sm">
+          </div>
+          <div>
+            <label class="text-xs text-ios-gray font-medium mb-1 block">Hora Saída (Prevista)</label>
+            <input type="time" id="edit-carro-saida" required class="ios-input w-full px-3 py-2 rounded-xl text-sm">
+          </div>
+        </div>
+
+        <div>
+          <div class="flex justify-between items-center mb-1">
+            <label class="text-xs text-ios-gray font-medium block">URL da Foto do Carro</label>
+            <button type="button" onclick="gerarFotoModalEdicao()" class="text-[11px] text-ios-blue font-semibold hover:underline flex items-center gap-1">
+              <i class="fa-solid fa-wand-magic-sparkles"></i> Recarregar Foto IA
+            </button>
+          </div>
+          <input type="text" id="edit-carro-imagem" placeholder="https://..." class="ios-input w-full px-3 py-2 rounded-xl text-xs">
+        </div>
+
+        <div class="flex gap-2 pt-2">
+          <button type="button" onclick="closeEditModal()" class="w-1/2 py-2.5 bg-slate-800 text-slate-300 rounded-xl text-xs font-semibold ios-btn">Cancelar</button>
+          <button type="submit" class="w-1/2 py-2.5 bg-ios-blue text-white rounded-xl text-xs font-bold ios-btn shadow-lg shadow-ios-blue/30">Salvar Alterações</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL DE SINCRONIZAÇÃO EM NUVEM -->
+  <div id="modal-sync" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden opacity-0 transition-opacity duration-200">
+    <div class="glass-panel w-full max-w-sm rounded-3xl p-5 space-y-4 shadow-2xl border border-white/20 transform scale-95 transition-transform duration-200" id="sync-modal-box">
+      <div class="flex justify-between items-center pb-2 border-b border-white/10">
+        <h3 class="text-lg font-bold text-white flex items-center gap-2">
+          <i class="fa-solid fa-cloud-arrow-up text-ios-blue"></i> Sincronização e Conexão
+        </h3>
+        <button onclick="closeSyncModal()" class="text-ios-gray hover:text-white text-lg px-2 py-1">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <!-- STATUS DIAGNÓSTICO DE CONEXÃO -->
+      <div class="p-3 bg-slate-900/90 rounded-2xl border border-white/10 space-y-2 text-xs">
+        <div class="flex justify-between items-center">
+          <span class="text-ios-gray"><i class="fa-solid fa-wifi mr-1"></i> Conexão Celular:</span>
+          <span id="diag-internet" class="font-bold text-ios-green"><i class="fa-solid fa-check"></i> Online</span>
+        </div>
+        <div class="flex justify-between items-center">
+          <span class="text-ios-gray"><i class="fa-solid fa-server mr-1"></i> Servidor Nuvem:</span>
+          <span id="diag-firebase" class="font-bold text-ios-orange"><i class="fa-solid fa-triangle-exclamation"></i> Verificando...</span>
+        </div>
+        <div class="flex justify-between items-center">
+          <span class="text-ios-gray"><i class="fa-solid fa-database mr-1"></i> Armazenamento:</span>
+          <span id="diag-local" class="font-bold text-ios-green"><i class="fa-solid fa-shield-halved"></i> Ativo (Dispositivo)</span>
+        </div>
+      </div>
+
+      <div class="space-y-3">
+        <p class="text-xs text-slate-300 leading-relaxed">
+          Digite o mesmo <b>Código da Unidade / Pátio</b> em todos os celulares da sua equipe para sincronizar os dados.
+        </p>
+
+        <div>
+          <label class="text-xs text-ios-gray font-medium mb-1 block">Código da Unidade / Pátio</label>
+          <input type="text" id="sync-room-input" placeholder="Ex: LAVAJATO-01" class="ios-input w-full px-3 py-2.5 rounded-xl text-sm font-mono uppercase tracking-wider">
+        </div>
+
+        <!-- PAINEL DE CONEXÃO FIREBASE PERSONALIZADO (PROJETO LAVA-JATO-CECE2) -->
+        <div class="p-3.5 bg-slate-900/90 rounded-2xl border border-ios-blue/30 space-y-2.5">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-ios-blue flex items-center gap-1.5">
+              <i class="fa-solid fa-fire text-ios-orange"></i> Conectar Projeto Firebase
+            </span>
+            <span class="text-[10px] text-ios-gray">lava-jato-cece2</span>
+          </div>
+          <p class="text-[11px] text-slate-300 leading-normal">
+            Cole abaixo o JSON do seu <b class="text-white">firebaseConfig</b> obtido nas Configurações do Projeto no Firebase Console:
+          </p>
+          <textarea id="custom-firebase-json" rows="4" placeholder='{
+  "apiKey": "AIzaSyAQ-EN6cobquUUe4VGyleuEva59WZSMFRw",
+  "authDomain": "lava-jato-cece2.firebaseapp.com",
+  "projectId": "lava-jato-cece2",
+  "storageBucket": "lava-jato-cece2.firebasestorage.app"
+}' class="ios-input w-full p-2.5 rounded-xl text-[10px] font-mono leading-tight bg-slate-950 border-slate-700"></textarea>
+
+          <!-- CAIXA DE MENSAGEM / STATUS DE SINCRONIZAÇÃO DENTRO DO MODAL -->
+          <div id="sync-status-msg" class="hidden text-xs p-2.5 rounded-xl border font-medium transition-all"></div>
+          
+          <div class="grid grid-cols-2 gap-2">
+            <button type="button" onclick="salvarConfigFirebaseCustomizada()" class="ios-btn py-2 bg-ios-blue text-white rounded-xl font-bold text-xs shadow-md shadow-ios-blue/30 flex items-center justify-center gap-1">
+              <i class="fa-solid fa-plug"></i> Conectar Chaves
+            </button>
+            <button type="button" onclick="popularDadosIniciais(true)" class="ios-btn py-2 bg-ios-green/20 text-ios-green hover:bg-ios-green/30 rounded-xl font-bold text-xs border border-ios-green/40 flex items-center justify-center gap-1">
+              <i class="fa-solid fa-cloud-arrow-up"></i> Criar Dados no Banco
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="flex gap-2 pt-1">
+        <button type="button" onclick="tentarReconectar()" class="w-1/2 py-2.5 bg-slate-800 text-slate-200 rounded-xl text-xs font-semibold ios-btn flex items-center justify-center gap-1">
+          <i class="fa-solid fa-rotate text-ios-blue"></i> Reconectar
+        </button>
+        <button type="button" onclick="salvarCodigoSincronizacao()" class="w-1/2 py-2.5 bg-ios-blue text-white rounded-xl text-xs font-bold ios-btn shadow-lg shadow-ios-blue/30">
+          Salvar Código
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { initializeApp, getApps, deleteApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getFirestore, doc, setDoc, onSnapshot, collection } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+    // Variaveis Firebase globais com fallback para a chave do projeto lava-jato-cece2
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'lava-jato-ios';
+    
+    const defaultFirebaseConfig = {
+      apiKey: "AIzaSyAQ-EN6cobquUUe4VGyleuEva59WZSMFRw",
+      authDomain: "lava-jato-cece2.firebaseapp.com",
+      projectId: "lava-jato-cece2",
+      storageBucket: "lava-jato-cece2.firebasestorage.app"
+    };
+
+    let firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : defaultFirebaseConfig;
+    const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+    // Verificar se existe config customizada salva no localStorage para uso do HTML baixado no celular
+    const savedCustomConfig = localStorage.getItem('lj_custom_firebase_config');
+    if (savedCustomConfig) {
+      try {
+        firebaseConfig = JSON.parse(savedCustomConfig);
+      } catch(e) {}
+    }
+
+    let db = null;
+    let auth = null;
+    let currentUser = null;
+    let unsubscribes = [];
+    let isCloudSyncActive = false;
+
+    // Canal local de sincronização rápida entre telas do mesmo celular/navegador
+    const localChannel = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('lj_local_sync') : null;
+    if (localChannel) {
+      localChannel.onmessage = (event) => {
+        if (event.data === 'sync_needed') {
+          appData.carros = JSON.parse(localStorage.getItem('lj_carros_v2')) || appData.carros;
+          appData.agendamentos = JSON.parse(localStorage.getItem('lj_agendamentos_v2')) || appData.agendamentos;
+          appData.despesas = JSON.parse(localStorage.getItem('lj_despesas_v2')) || appData.despesas;
+          renderAll();
+        }
+      };
+    }
+
+    // Código da unidade/pátio para sincronizar
+    let syncRoomCode = localStorage.getItem('lj_sync_room_code') || 'MATRIZ';
+
+    // ESTADO LOCAL
+    let appData = {
+      carros: JSON.parse(localStorage.getItem('lj_carros_v2')) || [
+        { id: 101, carro: 'Golf TSI', modelo: '2.0 Turbo 2021', cor: 'Cinza Nardo', valor: 80.00, protecao: 'Blend', entrada: '10:30', saida: '12:00', status: 'Em Lavagem', imagem: 'https://images.unsplash.com/photo-1541899481282-d53bffe3c35d?w=600&auto=format&fit=crop&q=80', roomCode: 'MATRIZ' },
+        { id: 102, carro: 'Jeep Compass', modelo: 'Limited 2023', cor: 'Preto', valor: 110.00, protecao: 'Carnaúba', entrada: '11:00', saida: '13:30', status: 'Pronto', imagem: 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?w=600&auto=format&fit=crop&q=80', roomCode: 'MATRIZ' }
+      ],
+      agendamentos: JSON.parse(localStorage.getItem('lj_agendamentos_v2')) || [
+        { id: 201, cliente: 'Roberto (BMW 320i)', data: new Date().toISOString().split('T')[0], hora: '14:30', servico: 'Lavagem Completa + Blend', roomCode: 'MATRIZ' }
+      ],
+      despesas: JSON.parse(localStorage.getItem('lj_despesas_v2')) || [
+        { id: 301, desc: 'Galão Shampoo Neutro 5L', valor: 75.00, cat: 'Insumos', data: 'Hoje', roomCode: 'MATRIZ' },
+        { id: 302, desc: 'Pretinho de Pneu Premium', valor: 45.00, cat: 'Insumos', data: 'Hoje', roomCode: 'MATRIZ' }
+      ]
+    };
+
+    // INICIALIZAR FIREBASE
+    async function initFirebase() {
+      if (!firebaseConfig) {
+        console.warn("Configuração Firebase não encontrada, operando em modo offline/local.");
+        isCloudSyncActive = false;
+        updateSyncStatusUI(false);
+        return false;
+      }
+
+      try {
+        // Se já existe um App Firebase inicializado, limpa para reconectar com novas chaves sem erro de duplicidade
+        const existingApps = getApps();
+        if (existingApps.length > 0) {
+          await deleteApp(existingApps[0]);
+        }
+
+        const app = initializeApp(firebaseConfig);
+        auth = getAuth(app);
+        db = getFirestore(app);
+
+        if (initialAuthToken) {
+          try {
+            const userCred = await signInWithCustomToken(auth, initialAuthToken);
+            currentUser = userCred.user;
+          } catch (e) {
+            const userCred = await signInAnonymously(auth);
+            currentUser = userCred.user;
+          }
+        } else {
+          const userCred = await signInAnonymously(auth);
+          currentUser = userCred.user;
+        }
+
+        if (currentUser) {
+          isCloudSyncActive = true;
+          updateSyncStatusUI(true);
+          setupRealtimeListeners();
+          return true;
+        }
+      } catch (err) {
+        console.error("Erro ao conectar no Firestore:", err);
+        isCloudSyncActive = false;
+        updateSyncStatusUI(false);
+        return false;
+      }
+      return false;
+    }
+
+    // LISTENER DE NUVEM EM TEMPO REAL
+    function setupRealtimeListeners() {
+      if (!db || !currentUser) return;
+
+      unsubscribes.forEach(unsub => unsub && unsub());
+      unsubscribes = [];
+
+      const carrosCol = collection(db, 'artifacts', appId, 'public', 'data', 'carros');
+      const agendamentosCol = collection(db, 'artifacts', appId, 'public', 'data', 'agendamentos');
+      const despesasCol = collection(db, 'artifacts', appId, 'public', 'data', 'despesas');
+
+      const listenCollection = (colRef, dataKey) => {
+        const unsub = onSnapshot(colRef, (snapshot) => {
+          const remoteItems = [];
+          snapshot.forEach(doc => {
+            const data = doc.data();
+            if (data && (!data.roomCode || data.roomCode === syncRoomCode)) {
+              remoteItems.push(data);
+            }
+          });
+
+          // Atualiza a lista local com os dados da nuvem, inclusive quando estiver vazia (0 itens)
+          appData[dataKey] = remoteItems;
+          localStorage.setItem(`lj_${dataKey}_v2`, JSON.stringify(appData[dataKey]));
+          renderAll();
+        }, (error) => {
+          console.error(`Erro onSnapshot em ${dataKey}:`, error);
+          updateSyncStatusUI(false);
+        });
+        unsubscribes.push(unsub);
+      };
+
+      listenCollection(carrosCol, 'carros');
+      listenCollection(agendamentosCol, 'agendamentos');
+      listenCollection(despesasCol, 'despesas');
+    }
+
+    // POPULAR BANCO COM DADOS INICIAIS / DEMO
+    async function popularDadosIniciais(force = false) {
+      playIosHapticSound(800, 0.05);
+
+      const dadosDemonstracao = {
+        carros: [
+          { id: Date.now() + 1, carro: 'Golf TSI', modelo: '2.0 Turbo 2021', cor: 'Cinza Nardo', valor: 80.00, protecao: 'Blend', entrada: '10:30', saida: '12:00', status: 'Em Lavagem', imagem: 'https://images.unsplash.com/photo-1541899481282-d53bffe3c35d?w=600&auto=format&fit=crop&q=80', roomCode: syncRoomCode },
+          { id: Date.now() + 2, carro: 'Jeep Compass', modelo: 'Limited 2023', cor: 'Preto', valor: 110.00, protecao: 'Carnaúba', entrada: '11:00', saida: '13:30', status: 'Pronto', imagem: 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?w=600&auto=format&fit=crop&q=80', roomCode: syncRoomCode },
+          { id: Date.now() + 3, carro: 'Toyota Corolla', modelo: 'XEi 2.0 2022', cor: 'Prata', valor: 90.00, protecao: 'Jet Cera', entrada: '11:30', saida: '14:00', status: 'Em Lavagem', imagem: 'https://images.unsplash.com/photo-1552519507-da3b142c6e3d?w=600&auto=format&fit=crop&q=80', roomCode: syncRoomCode }
+        ],
+        agendamentos: [
+          { id: Date.now() + 4, cliente: 'Roberto (BMW 320i)', data: new Date().toISOString().split('T')[0], hora: '14:30', servico: 'Lavagem Completa + Blend', roomCode: syncRoomCode },
+          { id: Date.now() + 5, cliente: 'Mariana (Honda Civic)', data: new Date().toISOString().split('T')[0], hora: '16:00', servico: 'Higienização Interna', roomCode: syncRoomCode }
+        ],
+        despesas: [
+          { id: Date.now() + 6, desc: 'Galão Shampoo Neutro 5L', valor: 75.00, cat: 'Insumos', data: new Date().toLocaleDateString('pt-BR'), roomCode: syncRoomCode },
+          { id: Date.now() + 7, desc: 'Pretinho de Pneu Premium', valor: 45.00, cat: 'Insumos', data: new Date().toLocaleDateString('pt-BR'), roomCode: syncRoomCode },
+          { id: Date.now() + 8, desc: 'Conta de Luz Pátio', valor: 180.00, cat: 'Contas', data: new Date().toLocaleDateString('pt-BR'), roomCode: syncRoomCode }
+        ]
+      };
+
+      appData.carros = [...appData.carros, ...dadosDemonstracao.carros];
+      appData.agendamentos = [...appData.agendamentos, ...dadosDemonstracao.agendamentos];
+      appData.despesas = [...appData.despesas, ...dadosDemonstracao.despesas];
+
+      saveData();
+
+      // Sincronizar dados com o Firebase Cloud caso esteja conectado
+      if (isCloudSyncActive) {
+        for (const car of dadosDemonstracao.carros) await syncDocumentToCloud('carros', car.id, car);
+        for (const ag of dadosDemonstracao.agendamentos) await syncDocumentToCloud('agendamentos', ag.id, ag);
+        for (const desp of dadosDemonstracao.despesas) await syncDocumentToCloud('despesas', desp.id, desp);
+      }
+
+      closeSyncModal();
+      showModal('Dados Carregados!', 'Adicionamos veículos, agendamentos e despesas de exemplo no seu banco de dados.', 'fa-solid fa-wand-magic-sparkles text-ios-purple');
+    }
+
+    // ATUALIZAR UM DOCUMENTO NA NUVEM
+    async function syncDocumentToCloud(collectionName, docId, dataObject) {
+      if (!db || !currentUser || !isCloudSyncActive) return;
+      try {
+        const dataWithRoom = { ...dataObject, roomCode: syncRoomCode };
+        const docRef = doc(db, 'artifacts', appId, 'public', 'data', collectionName, String(docId));
+        await setDoc(docRef, dataWithRoom);
+        console.log(`Documento ${docId} sincronizado com sucesso em ${collectionName}`);
+      } catch (e) {
+        console.error(`Erro ao salvar documento em ${collectionName}:`, e);
+        if (e.code === 'permission-denied') {
+          showModal('Acesso Negado no Firestore', 'As Regras de Segurança do seu Firebase estão bloqueando gravações. Acesse a aba "Regras" no Firebase Console e defina "allow read, write: if true;" para testes.', 'fa-solid fa-lock text-ios-red');
+        }
+      }
+    }
+
+    // EXCLUIR DOCUMENTO NA NUVEM
+    async function removeDocumentFromCloud(collectionName, docId) {
+      if (!db || !currentUser || !isCloudSyncActive) return;
+      try {
+        const { deleteDoc } = await import("https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js");
+        const docRef = doc(db, 'artifacts', appId, 'public', 'data', collectionName, String(docId));
+        await deleteDoc(docRef);
+      } catch (e) {
+        console.error(`Erro ao remover documento de ${collectionName}:`, e);
+      }
+    }
+
+    function updateSyncStatusUI(online) {
+      const btn = document.getElementById('btn-sync-status');
+      const label = document.getElementById('sync-code-label');
+      const diagNet = document.getElementById('diag-internet');
+      const diagFb = document.getElementById('diag-firebase');
+
+      const isNetOnline = navigator.onLine;
+      if (diagNet) {
+        diagNet.className = isNetOnline ? "font-bold text-ios-green" : "font-bold text-ios-red";
+        diagNet.innerHTML = isNetOnline ? '<i class="fa-solid fa-check"></i> Online' : '<i class="fa-solid fa-xmark"></i> Sem Internet';
+      }
+
+      if (diagFb) {
+        diagFb.className = online ? "font-bold text-ios-green" : "font-bold text-ios-orange";
+        diagFb.innerHTML = online ? '<i class="fa-solid fa-check"></i> Conectado' : '<i class="fa-solid fa-triangle-exclamation"></i> Offline (Modo Local)';
+      }
+
+      if (!btn || !label) return;
+
+      if (online) {
+        btn.className = "px-2.5 py-1 bg-ios-green/20 text-ios-green hover:bg-ios-green/30 text-xs font-semibold rounded-full border border-ios-green/30 flex items-center gap-1.5 transition-all";
+        label.innerHTML = `<i class="fa-solid fa-cloud text-ios-green"></i> ${syncRoomCode}`;
+      } else {
+        btn.className = "px-2.5 py-1 bg-ios-orange/20 text-ios-orange hover:bg-ios-orange/30 text-xs font-semibold rounded-full border border-ios-orange/30 flex items-center gap-1.5 transition-all";
+        label.innerHTML = `<i class="fa-solid fa-cloud-slash text-ios-orange"></i> Offline (${syncRoomCode})`;
+      }
+    }
+
+    function saveData() {
+      localStorage.setItem('lj_carros_v2', JSON.stringify(appData.carros));
+      localStorage.setItem('lj_agendamentos_v2', JSON.stringify(appData.agendamentos));
+      localStorage.setItem('lj_despesas_v2', JSON.stringify(appData.despesas));
+      if (localChannel) localChannel.postMessage('sync_needed');
+      renderAll();
+    }
+
+    // LEITOR INTELIGENTE E FLEXÍVEL DE CONFIGURAÇÕES FIREBASE
+    function parseFirebaseConfigText(text) {
+      if (!text) return null;
+      text = text.trim();
+
+      // 1. Tentar parse JSON direto
+      try {
+        const direct = JSON.parse(text);
+        if (direct && (direct.apiKey || direct.projectId)) return direct;
+      } catch (e) {}
+
+      // 2. Tentar recuperar trechos recortados/sem chaves
+      let formatted = text;
+      if (!formatted.startsWith('{')) formatted = '{' + formatted;
+      if (!formatted.endsWith('}')) formatted = formatted + '}';
+
+      try {
+        const fixedJson = JSON.parse(formatted);
+        if (fixedJson && (fixedJson.apiKey || fixedJson.projectId)) return fixedJson;
+      } catch (e) {}
+
+      // 3. Extração via Expressões Regulares (Regex) para colar código JS diretamente
+      const extractField = (fieldName) => {
+        const regex = new RegExp(`['"]?${fieldName}['"]?\\s*:\\s*['"]([^'"]+)['"]`, 'i');
+        const match = text.match(regex);
+        return match ? match[1] : null;
+      };
+
+      const apiKey = extractField('apiKey');
+      const projectId = extractField('projectId') || 'lava-jato-cece2';
+      const authDomain = extractField('authDomain') || `${projectId}.firebaseapp.com`;
+      const storageBucket = extractField('storageBucket') || `${projectId}.firebasestorage.app`;
+
+      if (apiKey || projectId) {
+        return {
+          apiKey: apiKey || "AIzaSyAQ-EN6cobquUUe4VGyleuEva59WZSMFRw",
+          authDomain,
+          projectId,
+          storageBucket
+        };
+      }
+
+      return null;
+    }
+
+    function setSyncStatusMsg(msg, type = 'info') {
+      const el = document.getElementById('sync-status-msg');
+      if (!el) return;
+      el.classList.remove('hidden', 'bg-ios-red/20', 'text-ios-red', 'border-ios-red/40', 'bg-ios-green/20', 'text-ios-green', 'border-ios-green/40', 'bg-ios-blue/20', 'text-ios-blue', 'border-ios-blue/40');
+      
+      if (type === 'error') {
+        el.classList.add('bg-ios-red/20', 'text-ios-red', 'border-ios-red/40');
+      } else if (type === 'success') {
+        el.classList.add('bg-ios-green/20', 'text-ios-green', 'border-ios-green/40');
+      } else {
+        el.classList.add('bg-ios-blue/20', 'text-ios-blue', 'border-ios-blue/40');
+      }
+      el.innerHTML = msg;
+    }
+
+    async function salvarConfigFirebaseCustomizada() {
+      const inputEl = document.getElementById('custom-firebase-json');
+      const rawJson = inputEl ? inputEl.value.trim() : '';
+      
+      if (!navigator.onLine) {
+        setSyncStatusMsg('<i class="fa-solid fa-plane"></i> Modo Avião / Sem Internet! Desative o Modo Avião para conectar.', 'error');
+        showModal('Sem Conexão', 'Seu aparelho está sem internet ou em Modo Avião. Conecte-se ao Wi-Fi ou rede móvel.', 'fa-solid fa-wifi text-ios-red');
+        return;
+      }
+
+      if (!rawJson) {
+        setSyncStatusMsg('<i class="fa-solid fa-circle-exclamation"></i> Cole o JSON ou as chaves do Firebase Console.', 'error');
+        showModal('Aviso', 'Por favor, cole o JSON de configuração do seu Firebase no campo indicado.', 'fa-solid fa-circle-exclamation text-ios-orange');
+        return;
+      }
+
+      const parsed = parseFirebaseConfigText(rawJson);
+      if (!parsed || (!parsed.apiKey && !parsed.projectId)) {
+        setSyncStatusMsg('<i class="fa-solid fa-triangle-exclamation"></i> Formato inválido! Verifique se copiou o código completo.', 'error');
+        showModal('Texto Inválido', 'Não conseguimos identificar as chaves do Firebase. Certifique-se de copiar todo o bloco de código do Firebase Console.', 'fa-solid fa-triangle-exclamation text-ios-red');
+        return;
+      }
+
+      localStorage.setItem('lj_custom_firebase_config', JSON.stringify(parsed));
+      firebaseConfig = parsed;
+
+      setSyncStatusMsg('<i class="fa-solid fa-spinner fa-spin"></i> Conectando e validando chaves...', 'info');
+      showModal('Conectando...', 'Validando chaves e conectando ao Firebase...', 'fa-solid fa-spinner fa-spin text-ios-blue');
+
+      const success = await initFirebase();
+      if (success) {
+        setSyncStatusMsg(`<i class="fa-solid fa-circle-check"></i> Conectado com sucesso ao projeto <b>${firebaseConfig.projectId}</b>!`, 'success');
+        showModal('Chaves Conectadas!', `Conexão estabelecida com sucesso ao projeto "${firebaseConfig.projectId}".`, 'fa-solid fa-circle-check text-ios-green');
+      } else {
+        setSyncStatusMsg('<i class="fa-solid fa-circle-xmark"></i> Falha na conexão. Verifique se a Autenticação Anônima está ativa no Firebase.', 'error');
+        showModal('Erro na Conexão', 'Não foi possível conectar. Acesse o Firebase Console -> Authentication e ative a opção "Anônimo".', 'fa-solid fa-triangle-exclamation text-ios-red');
+      }
+    }
+
+    async function tentarReconectar() {
+      if (!navigator.onLine) {
+        setSyncStatusMsg('<i class="fa-solid fa-plane"></i> Desative o Modo Avião para reconectar.', 'error');
+        showModal('Sem Internet', 'Desative o Modo Avião do seu dispositivo para conectar.', 'fa-solid fa-plane text-ios-orange');
+        return;
+      }
+
+      setSyncStatusMsg('<i class="fa-solid fa-spinner fa-spin"></i> Testando sinal com a nuvem...', 'info');
+      showModal('Conectando...', 'Verificando conexão com a nuvem...', 'fa-solid fa-spinner fa-spin text-ios-blue');
+      
+      const success = await initFirebase();
+      if (success) {
+        setSyncStatusMsg('<i class="fa-solid fa-circle-check"></i> Servidor online e sincronizado!', 'success');
+        showModal('Conectado!', 'Reconexão efetuada com sucesso.', 'fa-solid fa-circle-check text-ios-green');
+      } else {
+        setSyncStatusMsg('<i class="fa-solid fa-triangle-exclamation"></i> Servidor offline ou em modo local.', 'error');
+        showModal('Falha na Conexão', 'Não foi possível se comunicar com o banco de dados Firebase.', 'fa-solid fa-triangle-exclamation text-ios-orange');
+      }
+    }
+
+    window.salvarConfigFirebaseCustomizada = salvarConfigFirebaseCustomizada;
+    window.tentarReconectar = tentarReconectar;
+
+    window.addEventListener('online', () => updateSyncStatusUI(isCloudSyncActive));
+    window.addEventListener('offline', () => updateSyncStatusUI(false));
+
+    // EFEITO SONORO TÁTIL ESTILO IOS (WEB AUDIO API)
+    function playIosHapticSound(freq = 600, duration = 0.04) {
+      try {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtx) return;
+        const ctx = new AudioCtx();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, ctx.currentTime);
+        gain.gain.setValueAtTime(0.05, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + duration);
+      } catch(e) {}
+    }
+
+    // MODAL DE AVISO GENERATIZADO
+    function showModal(title, msg, iconClass = 'fa-solid fa-circle-info text-ios-blue') {
+      const modal = document.getElementById('ios-modal');
+      const box = document.getElementById('ios-modal-box');
+      if (!modal || !box) return;
+      document.getElementById('modal-title').innerText = title;
+      document.getElementById('modal-msg').innerText = msg;
+      document.getElementById('modal-icon').innerHTML = `<i class="${iconClass}"></i>`;
+      
+      modal.classList.remove('hidden');
+      setTimeout(() => {
+        modal.classList.remove('opacity-0');
+        box.classList.remove('scale-95');
+      }, 10);
+    }
+
+    // TROCAR ABAS DO SISTEMA
+    function switchTab(tabId, title, btnEl) {
+      playIosHapticSound(500, 0.03);
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+      const targetTab = document.getElementById(`tab-${tabId}`);
+      if (targetTab) targetTab.classList.remove('hidden');
+      
+      document.getElementById('header-title').innerHTML = `<i class="fa-solid ${
+        tabId === 'patio' ? 'fa-car-side text-ios-blue' : tabId === 'agendamentos' ? 'fa-calendar-days text-ios-orange' : 'fa-chart-line text-ios-purple'
+      }"></i> ${title}`;
+
+      document.querySelectorAll('.nav-btn').forEach(btn => {
+        btn.classList.remove('text-ios-blue', 'text-ios-orange', 'text-ios-purple');
+        btn.classList.add('text-ios-gray');
+      });
+
+      if (btnEl) {
+        btnEl.classList.remove('text-ios-gray');
+        const activeColor = tabId === 'patio' ? 'text-ios-blue' : tabId === 'agendamentos' ? 'text-ios-orange' : 'text-ios-purple';
+        btnEl.classList.add(activeColor);
+      }
+
+      setTimeout(() => {
+        drawPatioCanvas();
+        drawFinanceiroCanvas();
+      }, 50);
+    }
+
+    // SIMULAÇÃO / BUSCA DE FOTO DE CARRO
+    async function buscarFotoCarro(carro, modelo, cor) {
+      const images = [
+        'https://images.unsplash.com/photo-1541899481282-d53bffe3c35d?w=600&auto=format&fit=crop&q=80',
+        'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?w=600&auto=format&fit=crop&q=80',
+        'https://images.unsplash.com/photo-1552519507-da3b142c6e3d?w=600&auto=format&fit=crop&q=80',
+        'https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=600&auto=format&fit=crop&q=80',
+        'https://images.unsplash.com/photo-1580273916550-e323be2ae537?w=600&auto=format&fit=crop&q=80'
+      ];
+      let hash = 0;
+      const str = (carro || '') + (modelo || '');
+      for (let i = 0; i < str.length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash);
+      const index = Math.abs(hash) % images.length;
+      return images[index];
+    }
+
+    function closeModal() {
+      playIosHapticSound(400, 0.03);
+      const modal = document.getElementById('ios-modal');
+      const box = document.getElementById('ios-modal-box');
+      modal.classList.add('opacity-0');
+      box.classList.add('scale-95');
+      setTimeout(() => modal.classList.add('hidden'), 200);
+    }
+
+    // MODAL DE SINCRONIZAÇÃO
+    function openSyncModal() {
+      playIosHapticSound(600, 0.04);
+      document.getElementById('sync-room-input').value = syncRoomCode;
+      if (document.getElementById('custom-firebase-json')) {
+        document.getElementById('custom-firebase-json').value = JSON.stringify(firebaseConfig, null, 2);
+      }
+      const modal = document.getElementById('modal-sync');
+      const box = document.getElementById('sync-modal-box');
+      modal.classList.remove('hidden');
+      setTimeout(() => {
+        modal.classList.remove('opacity-0');
+        box.classList.remove('scale-95');
+      }, 10);
+    }
+
+    function closeSyncModal() {
+      playIosHapticSound(400, 0.03);
+      const modal = document.getElementById('modal-sync');
+      const box = document.getElementById('sync-modal-box');
+      modal.classList.add('opacity-0');
+      box.classList.add('scale-95');
+      setTimeout(() => modal.classList.add('hidden'), 200);
+    }
+
+    function salvarCodigoSincronizacao() {
+      const code = document.getElementById('sync-room-input').value.trim().toUpperCase();
+      if (!code) return;
+
+      syncRoomCode = code;
+      localStorage.setItem('lj_sync_room_code', syncRoomCode);
+      updateSyncStatusUI(isCloudSyncActive);
+      closeSyncModal();
+
+      setupRealtimeListeners();
+      showModal('Unidade Conectada!', `Você agora está conectado ao pátio: "${syncRoomCode}". Todos os aparelhos com este código sincronizarão automaticamente.`, 'fa-solid fa-cloud-arrow-down text-ios-green');
+    }
+
+    // FORMULÁRIO DE ENTRADA DO PÁTIO
+    document.getElementById('form-carro').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      playIosHapticSound(800, 0.05);
+
+      const carroNome = document.getElementById('carro-nome').value;
+      const carroModelo = document.getElementById('carro-modelo').value;
+      const carroCor = document.getElementById('carro-cor').value;
+
+      const novoCarro = {
+        id: Date.now(),
+        carro: carroNome,
+        modelo: carroModelo,
+        cor: carroCor,
+        valor: parseFloat(document.getElementById('carro-valor').value),
+        protecao: document.getElementById('carro-protecao').value,
+        entrada: document.getElementById('carro-entrada').value,
+        saida: document.getElementById('carro-saida').value,
+        status: 'Em Lavagem',
+        imagem: '',
+        roomCode: syncRoomCode
+      };
+
+      appData.carros.unshift(novoCarro);
+      saveData();
+      syncDocumentToCloud('carros', novoCarro.id, novoCarro);
+
+      e.target.reset();
+
+      const horaAtual = new Date().toTimeString().substring(0, 5);
+      document.getElementById('carro-entrada').value = horaAtual;
+      const horaSaida = new Date(Date.now() + 2 * 3600 * 1000).toTimeString().substring(0, 5);
+      document.getElementById('carro-saida').value = horaSaida;
+
+      showModal('Entrada Confirmada!', `${novoCarro.carro} adicionado. Gerando foto para sincronizar com os outros aparelhos...`, 'fa-solid fa-car-side text-ios-blue');
+
+      const fotoUrl = await buscarFotoCarro(carroNome, carroModelo, carroCor);
+      const carIndex = appData.carros.findIndex(c => c.id === novoCarro.id);
+      if (carIndex !== -1) {
+        appData.carros[carIndex].imagem = fotoUrl;
+        saveData();
+        syncDocumentToCloud('carros', novoCarro.id, appData.carros[carIndex]);
+      }
+    });
+
+    // FORMULÁRIO DE AGENDAMENTO
+    document.getElementById('form-agendamento').addEventListener('submit', (e) => {
+      e.preventDefault();
+      playIosHapticSound(800, 0.05);
+
+      const novoAg = {
+        id: Date.now(),
+        cliente: document.getElementById('ag-cliente').value,
+        data: document.getElementById('ag-data').value,
+        hora: document.getElementById('ag-hora').value,
+        servico: document.getElementById('ag-servico').value,
+        roomCode: syncRoomCode
+      };
+
+      appData.agendamentos.push(novoAg);
+      saveData();
+      syncDocumentToCloud('agendamentos', novoAg.id, novoAg);
+
+      e.target.reset();
+      showModal('Agendado!', `Agendamento confirmado para ${novoAg.cliente}.`, 'fa-solid fa-calendar-check text-ios-orange');
+    });
+
+    // FORMULÁRIO DE DESPESA
+    document.getElementById('form-despesa').addEventListener('submit', (e) => {
+      e.preventDefault();
+      playIosHapticSound(800, 0.05);
+
+      const novaDesp = {
+        id: Date.now(),
+        desc: document.getElementById('desp-desc').value,
+        valor: parseFloat(document.getElementById('desp-valor').value),
+        cat: document.getElementById('desp-cat').value,
+        data: new Date().toLocaleDateString('pt-BR'),
+        roomCode: syncRoomCode
+      };
+
+      appData.despesas.unshift(novaDesp);
+      saveData();
+      syncDocumentToCloud('despesas', novaDesp.id, novaDesp);
+
+      e.target.reset();
+      showModal('Registrado!', `Despesa de R$ ${novaDesp.valor.toFixed(2)} lançada com sucesso.`, 'fa-solid fa-circle-check text-ios-red');
+    });
+
+    // MUDAR STATUS DO CARRO
+    function toggleStatus(id) {
+      playIosHapticSound(600, 0.04);
+      const carro = appData.carros.find(c => c.id === id);
+      if (carro) {
+        if (carro.status === 'Em Lavagem') carro.status = 'Pronto';
+        else if (carro.status === 'Pronto') carro.status = 'Entregue';
+        else carro.status = 'Em Lavagem';
+        saveData();
+        syncDocumentToCloud('carros', carro.id, carro);
+      }
+    }
+
+    // ATENDER AGENDAMENTO (TRANSFRERIR PRO PÁTIO)
+    function moverAgendamentoParaPatio(id) {
+      const ag = appData.agendamentos.find(a => a.id === id);
+      if (ag) {
+        const horaAtual = new Date().toTimeString().substring(0, 5);
+        document.getElementById('carro-nome').value = ag.cliente;
+        document.getElementById('carro-entrada').value = ag.hora || horaAtual;
+        
+        appData.agendamentos = appData.agendamentos.filter(a => a.id !== id);
+        saveData();
+        removeDocumentFromCloud('agendamentos', id);
+
+        const btnPatio = document.querySelector('.nav-btn');
+        switchTab('patio', 'Pátio de Veículos', btnPatio);
+        showModal('Transferido', `Preencha o valor para confirmar o atendimento de ${ag.cliente}.`, 'fa-solid fa-arrow-right-to-bracket text-ios-blue');
+      }
+    }
+
+    // EXCLUIR ITEM
+    function removerItem(lista, id) {
+      playIosHapticSound(300, 0.05);
+      appData[lista] = appData[lista].filter(i => i.id !== id);
+      saveData();
+      removeDocumentFromCloud(lista, id);
+    }
+
+    // CANVAS 1: MAPA VISUAL DO PÁTIO EM HTML5 CANVAS
+    function drawPatioCanvas() {
+      const canvas = document.getElementById('canvas-patio');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      
+      const rect = canvas.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) return;
+      canvas.width = rect.width * window.devicePixelRatio;
+      canvas.height = rect.height * window.devicePixelRatio;
+      ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+
+      const w = rect.width;
+      const h = rect.height;
+
+      ctx.fillStyle = '#090D16';
+      ctx.fillRect(0, 0, w, h);
+
+      const totalVagas = 6;
+      const slotWidth = w / 3;
+      const slotHeight = h / 2;
+
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+      ctx.lineWidth = 1;
+
+      for (let i = 0; i < totalVagas; i++) {
+        const col = i % 3;
+        const row = Math.floor(i / 3);
+        const x = col * slotWidth;
+        const y = row * slotHeight;
+
+        ctx.strokeRect(x + 4, y + 4, slotWidth - 8, slotHeight - 8);
+
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+        ctx.font = 'bold 10px SF Pro Text, sans-serif';
+        ctx.fillText(`Vaga 0${i + 1}`, x + 10, y + 18);
+
+        const carro = appData.carros[i];
+        if (carro) {
+          let color = '#0A84FF';
+          if (carro.status === 'Pronto') color = '#30D158';
+          if (carro.status === 'Entregue') color = '#8E8E93';
+
+          ctx.fillStyle = color + '22';
+          ctx.strokeStyle = color;
+          ctx.lineWidth = 1.5;
+
+          ctx.beginPath();
+          if (ctx.roundRect) {
+            ctx.roundRect(x + 8, y + 24, slotWidth - 16, slotHeight - 32, 6);
+          } else {
+            ctx.rect(x + 8, y + 24, slotWidth - 16, slotHeight - 32);
+          }
+          ctx.fill();
+          ctx.stroke();
+
+          ctx.fillStyle = '#FFFFFF';
+          ctx.font = 'bold 11px SF Pro Text, sans-serif';
+          ctx.fillText(carro.carro.substring(0, 12), x + 14, y + 40);
+
+          ctx.fillStyle = color;
+          ctx.font = '10px SF Pro Text, sans-serif';
+          ctx.fillText(carro.status, x + 14, y + 54);
+        } else {
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
+          ctx.font = '10px SF Pro Text, sans-serif';
+          ctx.fillText('Livre', x + 14, y + 40);
+        }
+      }
+    }
+
+    // CANVAS 2: GRÁFICO FINANCEIRO DE BARRAS
+    function drawFinanceiroCanvas() {
+      const canvas = document.getElementById('canvas-financeiro');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+
+      const rect = canvas.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) return;
+      canvas.width = rect.width * window.devicePixelRatio;
+      canvas.height = rect.height * window.devicePixelRatio;
+      ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+
+      const w = rect.width;
+      const h = rect.height;
+
+      ctx.fillStyle = '#090D16';
+      ctx.fillRect(0, 0, w, h);
+
+      const totalFat = appData.carros.reduce((acc, c) => acc + (c.valor || 0), 0);
+      const totalDesp = appData.despesas.reduce((acc, d) => acc + (d.valor || 0), 0);
+      const lucro = Math.max(0, totalFat - totalDesp);
+
+      const maxVal = Math.max(totalFat, totalDesp, 100);
+
+      const bars = [
+        { label: 'Faturamento', val: totalFat, color: '#30D158' },
+        { label: 'Despesas', val: totalDesp, color: '#FF453A' },
+        { label: 'Lucro Líq.', val: lucro, color: '#0A84FF' }
+      ];
+
+      const barWidth = 45;
+      const gap = (w - (bars.length * barWidth)) / (bars.length + 1);
+
+      bars.forEach((bar, index) => {
+        const x = gap + index * (barWidth + gap);
+        const barHeight = Math.max(4, (bar.val / maxVal) * (h - 60));
+        const y = h - 25 - barHeight;
+
+        ctx.fillStyle = bar.color;
+        ctx.beginPath();
+        if (ctx.roundRect) {
+          ctx.roundRect(x, y, barWidth, barHeight, [4, 4, 0, 0]);
+        } else {
+          ctx.rect(x, y, barWidth, barHeight);
+        }
+        ctx.fill();
+
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = 'bold 10px SF Pro Text, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(`R$${bar.val.toFixed(0)}`, x + barWidth / 2, y - 6);
+
+        ctx.fillStyle = '#8E8E93';
+        ctx.font = '10px SF Pro Text, sans-serif';
+        ctx.fillText(bar.label, x + barWidth / 2, h - 8);
+      });
+      ctx.textAlign = 'left';
+    }
+
+    // EDIÇÃO DE CARROS
+    function openEditModal(id) {
+      playIosHapticSound(600, 0.04);
+      const c = appData.carros.find(car => car.id === id);
+      if (!c) return;
+
+      document.getElementById('edit-carro-id').value = c.id;
+      document.getElementById('edit-carro-nome').value = c.carro || '';
+      document.getElementById('edit-carro-modelo').value = c.modelo || '';
+      document.getElementById('edit-carro-cor').value = c.cor || '';
+      document.getElementById('edit-carro-valor').value = c.valor || 0;
+      document.getElementById('edit-carro-protecao').value = c.protecao || 'Nenhuma';
+      document.getElementById('edit-carro-status').value = c.status || 'Em Lavagem';
+      document.getElementById('edit-carro-entrada').value = c.entrada || '';
+      document.getElementById('edit-carro-saida').value = c.saida || '';
+      document.getElementById('edit-carro-imagem').value = c.imagem || '';
+
+      const modal = document.getElementById('modal-editar-carro');
+      const box = document.getElementById('edit-modal-box');
+      modal.classList.remove('hidden');
+      setTimeout(() => {
+        modal.classList.remove('opacity-0');
+        box.classList.remove('scale-95');
+      }, 10);
+    }
+
+    function closeEditModal() {
+      playIosHapticSound(400, 0.03);
+      const modal = document.getElementById('modal-editar-carro');
+      const box = document.getElementById('edit-modal-box');
+      modal.classList.add('opacity-0');
+      box.classList.add('scale-95');
+      setTimeout(() => modal.classList.add('hidden'), 200);
+    }
+
+    async function gerarFotoModalEdicao() {
+      const nome = document.getElementById('edit-carro-nome').value;
+      const modelo = document.getElementById('edit-carro-modelo').value;
+      const cor = document.getElementById('edit-carro-cor').value;
+
+      if (!nome) {
+        showModal('Aviso', 'Preencha o nome do veículo antes de buscar a foto.');
+        return;
+      }
+
+      showModal('Buscando Foto', 'Aguarde enquanto geramos uma foto para o veículo...', 'fa-solid fa-spinner fa-spin text-ios-blue');
+      const foto = await buscarFotoCarro(nome, modelo, cor);
+      closeModal();
+      document.getElementById('edit-carro-imagem').value = foto;
+    }
+
+    document.getElementById('form-editar-carro').addEventListener('submit', (e) => {
+      e.preventDefault();
+      playIosHapticSound(800, 0.05);
+
+      const id = parseInt(document.getElementById('edit-carro-id').value);
+      const carIndex = appData.carros.findIndex(c => c.id === id);
+
+      if (carIndex !== -1) {
+        appData.carros[carIndex] = {
+          ...appData.carros[carIndex],
+          carro: document.getElementById('edit-carro-nome').value,
+          modelo: document.getElementById('edit-carro-modelo').value,
+          cor: document.getElementById('edit-carro-cor').value,
+          valor: parseFloat(document.getElementById('edit-carro-valor').value),
+          protecao: document.getElementById('edit-carro-protecao').value,
+          status: document.getElementById('edit-carro-status').value,
+          entrada: document.getElementById('edit-carro-entrada').value,
+          saida: document.getElementById('edit-carro-saida').value,
+          imagem: document.getElementById('edit-carro-imagem').value,
+          roomCode: syncRoomCode
+        };
+
+        saveData();
+        syncDocumentToCloud('carros', id, appData.carros[carIndex]);
+        closeEditModal();
+        showModal('Salvo!', 'Dados do veículo atualizados e sincronizados na nuvem.', 'fa-solid fa-circle-check text-ios-green');
+      }
+    });
+
+    // RENDERIZAR TODOS OS COMPONENTES E LISTAS
+    function renderAll() {
+      // 1. Renderizar Pátio
+      const containerCarros = document.getElementById('lista-carros');
+      if (!containerCarros) return;
+      containerCarros.innerHTML = '';
+      
+      document.getElementById('stat-count-badge').innerText = `${appData.carros.length} carros no pátio`;
+
+      if (appData.carros.length === 0) {
+        containerCarros.innerHTML = `
+          <div class="glass-panel p-6 rounded-2xl text-center text-ios-gray">
+            <i class="fa-solid fa-car-side text-3xl mb-2 text-slate-600 block"></i>
+            Nenhum carro no pátio no momento.
+          </div>`;
+      } else {
+        appData.carros.forEach(c => {
+          let statusColor = 'bg-ios-blue/20 text-ios-blue border-ios-blue/30';
+          if (c.status === 'Pronto') statusColor = 'bg-ios-green/20 text-ios-green border-ios-green/30';
+          if (c.status === 'Entregue') statusColor = 'bg-ios-gray/20 text-ios-gray border-ios-gray/30';
+
+          const imgHtml = c.imagem 
+            ? `<img src="${c.imagem}" alt="${c.carro}" class="w-full h-full object-cover" onerror="this.src='https://images.unsplash.com/photo-1552519507-da3b142c6e3d?w=300'"/>` 
+            : `<div class="flex flex-col items-center justify-center h-full text-center px-1">
+                 <i class="fa-solid fa-spinner fa-spin text-ios-blue text-sm"></i>
+                 <span class="text-[9px] text-ios-gray mt-1">Buscando foto...</span>
+               </div>`;
+
+          containerCarros.innerHTML += `
+            <div class="glass-panel p-3.5 rounded-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border border-white/10">
+              <div class="flex items-center gap-3 w-full sm:w-auto">
+                <div class="relative w-20 h-16 rounded-xl overflow-hidden bg-slate-900 border border-white/10 shrink-0">
+                  ${imgHtml}
+                </div>
+                <div class="space-y-1">
+                  <div class="flex items-center gap-2">
+                    <h4 class="font-bold text-white text-base">${c.carro}</h4>
+                    <span class="text-xs text-ios-gray">(${c.cor || 'S/ Cor'})</span>
+                  </div>
+                  <p class="text-xs text-slate-300">${c.modelo || 'Sem Modelo'}</p>
+                  <div class="flex items-center gap-2 text-[11px] text-ios-gray pt-0.5">
+                    <span><i class="fa-regular fa-clock"></i> Ent: ${c.entrada}</span>
+                    <span>•</span>
+                    <span>Sai: <b class="text-white">${c.saida}</b></span>
+                  </div>
+                  <div class="flex flex-wrap gap-1 pt-1">
+                    <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-ios-purple/20 text-ios-purple border border-ios-purple/30">
+                      ${c.protecao}
+                    </span>
+                    <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-ios-green/20 text-ios-green border border-ios-green/30">
+                      R$ ${Number(c.valor || 0).toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="flex items-center justify-between sm:justify-end gap-2 w-full sm:w-auto pt-2 sm:pt-0 border-t sm:border-t-0 border-white/10">
+                <button onclick="toggleStatus(${c.id})" class="px-3 py-1.5 rounded-xl text-xs font-bold border transition-all ${statusColor}">
+                  ${c.status}
+                </button>
+                <button onclick="openEditModal(${c.id})" title="Editar Veículo" class="px-2.5 py-1.5 bg-slate-800 text-ios-blue hover:bg-slate-700 rounded-xl text-xs font-semibold border border-white/10">
+                  <i class="fa-solid fa-pen-to-square"></i>
+                </button>
+                <button onclick="removerItem('carros', ${c.id})" title="Excluir Veículo" class="px-2.5 py-1.5 bg-ios-red/10 text-ios-red hover:bg-ios-red/20 rounded-xl text-xs font-semibold border border-ios-red/20">
+                  <i class="fa-solid fa-trash-can"></i>
+                </button>
+              </div>
+            </div>
+          `;
+        });
+      }
+
+      // 2. Renderizar Agendamentos
+      const containerAg = document.getElementById('lista-agendamentos');
+      if (containerAg) {
+        containerAg.innerHTML = '';
+
+        if (appData.agendamentos.length === 0) {
+          containerAg.innerHTML = `
+            <div class="glass-panel p-6 rounded-2xl text-center text-ios-gray">
+              <i class="fa-regular fa-calendar text-3xl mb-2 text-slate-600 block"></i>
+              Nenhum agendamento futuro.
+            </div>`;
+        } else {
+          appData.agendamentos.forEach(a => {
+            containerAg.innerHTML += `
+              <div class="glass-panel p-4 rounded-2xl flex justify-between items-center space-x-2 border border-white/10">
+                <div class="space-y-1">
+                  <h4 class="font-bold text-white text-sm">${a.cliente}</h4>
+                  <p class="text-xs text-ios-orange font-medium"><i class="fa-regular fa-calendar-check"></i> ${a.data} às ${a.hora}</p>
+                  <p class="text-xs text-ios-gray">${a.servico || 'Serviço Padrão'}</p>
+                </div>
+                <div class="flex flex-col gap-1">
+                  <button onclick="moverAgendamentoParaPatio(${a.id})" class="px-3 py-1.5 bg-ios-blue text-white rounded-xl text-xs font-bold ios-btn flex items-center gap-1">
+                    <i class="fa-solid fa-car-side"></i> Pátio
+                  </button>
+                  <button onclick="removerItem('agendamentos', ${a.id})" class="text-ios-red text-xs p-1 text-right">
+                    <i class="fa-solid fa-xmark"></i> Cancelar
+                  </button>
+                </div>
+              </div>
+            `;
+          });
+        }
+      }
+
+      // 3. Renderizar Despesas & Resumo
+      const containerDesp = document.getElementById('lista-despesas');
+      if (containerDesp) {
+        containerDesp.innerHTML = '';
+
+        let totalDesp = 0;
+        appData.despesas.forEach(d => {
+          totalDesp += Number(d.valor || 0);
+          containerDesp.innerHTML += `
+            <div class="glass-panel p-3.5 rounded-2xl flex justify-between items-center border border-white/10">
+              <div>
+                <h4 class="font-semibold text-white text-sm">${d.desc}</h4>
+                <span class="text-[10px] text-ios-gray font-medium">${d.cat || 'Geral'} • ${d.data}</span>
+              </div>
+              <div class="flex items-center gap-3">
+                <span class="text-sm font-bold text-ios-red">- R$ ${Number(d.valor || 0).toFixed(2)}</span>
+                <button onclick="removerItem('despesas', ${d.id})" class="text-ios-gray hover:text-ios-red text-xs">
+                  <i class="fa-solid fa-trash-can"></i>
+                </button>
+              </div>
+            </div>
+          `;
+        });
+
+        const totalFat = appData.carros.reduce((acc, c) => acc + Number(c.valor || 0), 0);
+        const lucro = totalFat - totalDesp;
+
+        document.getElementById('stat-faturamento').innerText = `R$ ${totalFat.toFixed(2)}`;
+        document.getElementById('stat-despesas').innerText = `R$ ${totalDesp.toFixed(2)}`;
+        document.getElementById('stat-lucro').innerText = `Lucro Líquido: R$ ${lucro.toFixed(2)}`;
+      }
+
+      drawPatioCanvas();
+      drawFinanceiroCanvas();
+    }
+
+    // EXPORTAR PARA O WINDOW PARA ACESSO VIA ONCLICK NO HTML
+    window.switchTab = switchTab;
+    window.showModal = showModal;
+    window.closeModal = closeModal;
+    window.openSyncModal = openSyncModal;
+    window.closeSyncModal = closeSyncModal;
+    window.popularDadosIniciais = popularDadosIniciais;
+    window.salvarCodigoSincronizacao = salvarCodigoSincronizacao;
+    window.toggleStatus = toggleStatus;
+    window.openEditModal = openEditModal;
+    window.closeEditModal = closeEditModal;
+    window.gerarFotoModalEdicao = gerarFotoModalEdicao;
+    window.removerItem = removerItem;
+    window.moverAgendamentoParaPatio = moverAgendamentoParaPatio;
+
+    window.addEventListener('resize', () => {
+      drawPatioCanvas();
+      drawFinanceiroCanvas();
+    });
+
+    window.onload = function() {
+      const horaAtual = new Date().toTimeString().substring(0, 5);
+      document.getElementById('carro-entrada').value = horaAtual;
+      
+      const horaSaida = new Date(Date.now() + 2 * 3600 * 1000).toTimeString().substring(0, 5);
+      document.getElementById('carro-saida').value = horaSaida;
+      document.getElementById('ag-data').value = new Date().toISOString().split('T')[0];
+
+      initFirebase();
+      renderAll();
+    };
+  </script>
+</body>
+</html>
