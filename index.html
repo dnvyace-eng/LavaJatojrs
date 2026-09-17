@@ -317,7 +317,7 @@
   </nav>
 
   <!-- MODAL DE MENSAGENS E CONFIRMAÇÕES (Custom iOS Dialog) -->
-  <div id="ios-modal" class="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden opacity-0 transition-opacity duration-200">
+  <div id="ios-modal" class="fixed inset-0 bg-black/70 backdrop-blur-md z-[100] flex items-center justify-center p-4 hidden opacity-0 transition-opacity duration-200">
     <div class="glass-panel w-full max-w-xs rounded-3xl p-5 text-center space-y-4 shadow-2xl border border-white/20 transform scale-95 transition-transform duration-200" id="ios-modal-box">
       <div id="modal-icon" class="text-3xl text-ios-blue">
         <i class="fa-solid fa-circle-info"></i>
@@ -471,6 +471,9 @@
   "projectId": "lava-jato-cece2",
   "storageBucket": "lava-jato-cece2.firebasestorage.app"
 }' class="ios-input w-full p-2.5 rounded-xl text-[10px] font-mono leading-tight bg-slate-950 border-slate-700"></textarea>
+
+          <!-- CAIXA DE MENSAGEM / STATUS DE SINCRONIZAÇÃO DENTRO DO MODAL -->
+          <div id="sync-status-msg" class="hidden text-xs p-2.5 rounded-xl border font-medium transition-all"></div>
           
           <div class="grid grid-cols-2 gap-2">
             <button type="button" onclick="salvarConfigFirebaseCustomizada()" class="ios-btn py-2 bg-ios-blue text-white rounded-xl font-bold text-xs shadow-md shadow-ios-blue/30 flex items-center justify-center gap-1">
@@ -496,7 +499,7 @@
   </div>
 
   <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { initializeApp, getApps, deleteApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
     import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
     import { getFirestore, doc, setDoc, onSnapshot, collection } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
@@ -564,10 +567,16 @@
         console.warn("Configuração Firebase não encontrada, operando em modo offline/local.");
         isCloudSyncActive = false;
         updateSyncStatusUI(false);
-        return;
+        return false;
       }
 
       try {
+        // Se já existe um App Firebase inicializado, limpa para reconectar com novas chaves sem erro de duplicidade
+        const existingApps = getApps();
+        if (existingApps.length > 0) {
+          await deleteApp(existingApps[0]);
+        }
+
         const app = initializeApp(firebaseConfig);
         auth = getAuth(app);
         db = getFirestore(app);
@@ -589,12 +598,15 @@
           isCloudSyncActive = true;
           updateSyncStatusUI(true);
           setupRealtimeListeners();
+          return true;
         }
       } catch (err) {
         console.error("Erro ao conectar no Firestore:", err);
         isCloudSyncActive = false;
         updateSyncStatusUI(false);
+        return false;
       }
+      return false;
     }
 
     // LISTENER DE NUVEM EM TEMPO REAL
@@ -745,25 +757,123 @@
       renderAll();
     }
 
-    function salvarConfigFirebaseCustomizada() {
-      const rawJson = document.getElementById('custom-firebase-json').value.trim();
-      if (!rawJson) return;
+    // LEITOR INTELIGENTE E FLEXÍVEL DE CONFIGURAÇÕES FIREBASE
+    function parseFirebaseConfigText(text) {
+      if (!text) return null;
+      text = text.trim();
+
+      // 1. Tentar parse JSON direto
       try {
-        const parsed = JSON.parse(rawJson);
-        localStorage.setItem('lj_custom_firebase_config', JSON.stringify(parsed));
-        firebaseConfig = parsed;
-        showModal('Chaves Salvas!', 'Tentando conectar ao seu servidor Firebase...', 'fa-solid fa-circle-check text-ios-green');
-        initFirebase();
-      } catch (e) {
-        showModal('Erro no JSON', 'Verifique se o formato JSON fornecido pelo Firebase está correto.', 'fa-solid fa-triangle-exclamation text-ios-red');
+        const direct = JSON.parse(text);
+        if (direct && (direct.apiKey || direct.projectId)) return direct;
+      } catch (e) {}
+
+      // 2. Tentar recuperar trechos recortados/sem chaves
+      let formatted = text;
+      if (!formatted.startsWith('{')) formatted = '{' + formatted;
+      if (!formatted.endsWith('}')) formatted = formatted + '}';
+
+      try {
+        const fixedJson = JSON.parse(formatted);
+        if (fixedJson && (fixedJson.apiKey || fixedJson.projectId)) return fixedJson;
+      } catch (e) {}
+
+      // 3. Extração via Expressões Regulares (Regex) para colar código JS diretamente
+      const extractField = (fieldName) => {
+        const regex = new RegExp(`['"]?${fieldName}['"]?\\s*:\\s*['"]([^'"]+)['"]`, 'i');
+        const match = text.match(regex);
+        return match ? match[1] : null;
+      };
+
+      const apiKey = extractField('apiKey');
+      const projectId = extractField('projectId') || 'lava-jato-cece2';
+      const authDomain = extractField('authDomain') || `${projectId}.firebaseapp.com`;
+      const storageBucket = extractField('storageBucket') || `${projectId}.firebasestorage.app`;
+
+      if (apiKey || projectId) {
+        return {
+          apiKey: apiKey || "AIzaSyAQ-EN6cobquUUe4VGyleuEva59WZSMFRw",
+          authDomain,
+          projectId,
+          storageBucket
+        };
+      }
+
+      return null;
+    }
+
+    function setSyncStatusMsg(msg, type = 'info') {
+      const el = document.getElementById('sync-status-msg');
+      if (!el) return;
+      el.classList.remove('hidden', 'bg-ios-red/20', 'text-ios-red', 'border-ios-red/40', 'bg-ios-green/20', 'text-ios-green', 'border-ios-green/40', 'bg-ios-blue/20', 'text-ios-blue', 'border-ios-blue/40');
+      
+      if (type === 'error') {
+        el.classList.add('bg-ios-red/20', 'text-ios-red', 'border-ios-red/40');
+      } else if (type === 'success') {
+        el.classList.add('bg-ios-green/20', 'text-ios-green', 'border-ios-green/40');
+      } else {
+        el.classList.add('bg-ios-blue/20', 'text-ios-blue', 'border-ios-blue/40');
+      }
+      el.innerHTML = msg;
+    }
+
+    async function salvarConfigFirebaseCustomizada() {
+      const inputEl = document.getElementById('custom-firebase-json');
+      const rawJson = inputEl ? inputEl.value.trim() : '';
+      
+      if (!navigator.onLine) {
+        setSyncStatusMsg('<i class="fa-solid fa-plane"></i> Modo Avião / Sem Internet! Desative o Modo Avião para conectar.', 'error');
+        showModal('Sem Conexão', 'Seu aparelho está sem internet ou em Modo Avião. Conecte-se ao Wi-Fi ou rede móvel.', 'fa-solid fa-wifi text-ios-red');
+        return;
+      }
+
+      if (!rawJson) {
+        setSyncStatusMsg('<i class="fa-solid fa-circle-exclamation"></i> Cole o JSON ou as chaves do Firebase Console.', 'error');
+        showModal('Aviso', 'Por favor, cole o JSON de configuração do seu Firebase no campo indicado.', 'fa-solid fa-circle-exclamation text-ios-orange');
+        return;
+      }
+
+      const parsed = parseFirebaseConfigText(rawJson);
+      if (!parsed || (!parsed.apiKey && !parsed.projectId)) {
+        setSyncStatusMsg('<i class="fa-solid fa-triangle-exclamation"></i> Formato inválido! Verifique se copiou o código completo.', 'error');
+        showModal('Texto Inválido', 'Não conseguimos identificar as chaves do Firebase. Certifique-se de copiar todo o bloco de código do Firebase Console.', 'fa-solid fa-triangle-exclamation text-ios-red');
+        return;
+      }
+
+      localStorage.setItem('lj_custom_firebase_config', JSON.stringify(parsed));
+      firebaseConfig = parsed;
+
+      setSyncStatusMsg('<i class="fa-solid fa-spinner fa-spin"></i> Conectando e validando chaves...', 'info');
+      showModal('Conectando...', 'Validando chaves e conectando ao Firebase...', 'fa-solid fa-spinner fa-spin text-ios-blue');
+
+      const success = await initFirebase();
+      if (success) {
+        setSyncStatusMsg(`<i class="fa-solid fa-circle-check"></i> Conectado com sucesso ao projeto <b>${firebaseConfig.projectId}</b>!`, 'success');
+        showModal('Chaves Conectadas!', `Conexão estabelecida com sucesso ao projeto "${firebaseConfig.projectId}".`, 'fa-solid fa-circle-check text-ios-green');
+      } else {
+        setSyncStatusMsg('<i class="fa-solid fa-circle-xmark"></i> Falha na conexão. Verifique se a Autenticação Anônima está ativa no Firebase.', 'error');
+        showModal('Erro na Conexão', 'Não foi possível conectar. Acesse o Firebase Console -> Authentication e ative a opção "Anônimo".', 'fa-solid fa-triangle-exclamation text-ios-red');
       }
     }
 
     async function tentarReconectar() {
+      if (!navigator.onLine) {
+        setSyncStatusMsg('<i class="fa-solid fa-plane"></i> Desative o Modo Avião para reconectar.', 'error');
+        showModal('Sem Internet', 'Desative o Modo Avião do seu dispositivo para conectar.', 'fa-solid fa-plane text-ios-orange');
+        return;
+      }
+
+      setSyncStatusMsg('<i class="fa-solid fa-spinner fa-spin"></i> Testando sinal com a nuvem...', 'info');
       showModal('Conectando...', 'Verificando conexão com a nuvem...', 'fa-solid fa-spinner fa-spin text-ios-blue');
-      await initFirebase();
-      closeModal();
-      openSyncModal();
+      
+      const success = await initFirebase();
+      if (success) {
+        setSyncStatusMsg('<i class="fa-solid fa-circle-check"></i> Servidor online e sincronizado!', 'success');
+        showModal('Conectado!', 'Reconexão efetuada com sucesso.', 'fa-solid fa-circle-check text-ios-green');
+      } else {
+        setSyncStatusMsg('<i class="fa-solid fa-triangle-exclamation"></i> Servidor offline ou em modo local.', 'error');
+        showModal('Falha na Conexão', 'Não foi possível se comunicar com o banco de dados Firebase.', 'fa-solid fa-triangle-exclamation text-ios-orange');
+      }
     }
 
     window.salvarConfigFirebaseCustomizada = salvarConfigFirebaseCustomizada;
